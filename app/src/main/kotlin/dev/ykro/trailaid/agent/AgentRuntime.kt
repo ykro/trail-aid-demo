@@ -126,7 +126,10 @@ class AgentRuntime(private val context: Context, private val store: TrailStore, 
         .runAsync(userId = USER_ID, sessionId = sessionId, newMessage = message, runConfig = RunConfig(streamingMode = StreamingMode.NONE, maxLlmCalls = 12))
         .collect { event ->
           event.errorMessage?.let { emit(AgentUiEvent.Error(it)) }
-          if (!event.partial) mapFunctionParts(event).forEach { emit(it) }
+          if (!event.partial) {
+            mapFunctionParts(event).forEach { emit(it) }
+            if (event.content?.parts.orEmpty().any { p -> p.functionCall?.let { isCprSkillLoad(it.name, it.args) } == true }) autoStartMetronome().forEach { emit(it) }
+          }
           if (event.author == FirstAidAgent.NAME) {
             val text = modelText(event)
             if (event.partial) {
@@ -147,6 +150,7 @@ class AgentRuntime(private val context: Context, private val store: TrailStore, 
         val (name, args) = recovered
         val id = "recovered-" + System.currentTimeMillis()
         emit(AgentUiEvent.ToolCall(id, name, args, name in SKILL_TOOLS))
+        if (isCprSkillLoad(name, args)) autoStartMetronome().forEach { emit(it) }
         val result = runCatching { executeRecovered(name, args) }.getOrNull()
         if (result == null) {
           emit(AgentUiEvent.ToolResult(id, name, isError = true, summary = "could not recover"))
@@ -165,6 +169,22 @@ class AgentRuntime(private val context: Context, private val store: TrailStore, 
   }
 
   private fun recoverMisformattedCall(message: String) = parseMisformattedCall(message)
+
+  /**
+   * Safety net: a 2B model does not reliably follow "start the metronome for CPR", so the app starts
+   * it deterministically the moment the CPR protocol is loaded. The chip is labelled so the audience
+   * sees it was the app, not the model. Not applied on replay (a resumed incident should stay quiet).
+   */
+  private fun autoStartMetronome(): List<AgentUiEvent> {
+    if (metronome.isRunning) return emptyList()
+    val bpm = timerTools.startCprMetronome()["bpm"]
+    val id = "app-metronome-" + System.currentTimeMillis()
+    Timber.i("Metronome auto-started by the app on load_skill(cpr-adult)")
+    return listOf(
+      AgentUiEvent.ToolCall(id, "start_cpr_metronome", mapOf("by" to "app"), isSkill = false),
+      AgentUiEvent.ToolResult(id, "start_cpr_metronome", isError = false, summary = "$bpm bpm · app"),
+    )
+  }
 
   private suspend fun executeRecovered(name: String, args: Map<String, String>): String? =
     when (name) {
@@ -266,6 +286,10 @@ class AgentRuntime(private val context: Context, private val store: TrailStore, 
     const val KICKOFF = "$SYSTEM_PREFIX Emergency started. Ask the hiker what happened, in one short sentence."
   }
 }
+
+/** True when a tool call loads the adult CPR protocol (skill name may come quoted from the recovery path). */
+internal fun isCprSkillLoad(name: String, args: Map<String, Any?>): Boolean =
+  name == SkillToolset.TOOL_NAME_LOAD_SKILL && (args["skill_name"] as? String)?.trim('"', '\'', ' ') == "cpr-adult"
 
 /** Extracts `call:name{key:value,...}` from LiteRT-LM's parse error. Tolerates ", ', <|"|> and bare values. */
 internal fun parseMisformattedCall(message: String): Pair<String, Map<String, String>>? {

@@ -32,9 +32,11 @@ object FirstAidAgent {
     improvised-splint.md, signs-by-stage.md, common-mistakes.md) only when the steps say the situation needs them.
     Guide step by step and wait for the user's answer between steps.
 
-    Tools: use start_named_timer when a step says to note the time, start_cpr_metronome for CPR,
-    get_location to read the position aloud, get_device_status for battery. call_emergency_contact
-    and send_location_sms ask the user first; propose them when help is needed.
+    CPR rule: if the hiker says CPR, chest compressions, or that someone is not breathing, call
+    load_skill{skill_name:<|"|>cpr-adult<|"|>} and then start_cpr_metronome{} before explaining anything.
+    Tools: use start_named_timer when a step says to note the time, get_location to read the position
+    aloud, get_device_status for battery. call_emergency_contact and send_location_sms always ask the
+    user for approval first; propose them when help is needed and tell the hiker a confirmation will appear.
     Use only the tool names listed. In tool calls, wrap every string argument in the <|"|> markers,
     for example load_skill{skill_name:<|"|>bleeding<|"|>}. If unsure, say so and advise getting professional help.
     """

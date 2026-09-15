@@ -9,6 +9,8 @@ Built with [ADK for Kotlin](https://github.com/google/adk-kotlin) 1.0.1. No Fire
 > Educational demo. Not a substitute for first-aid training or professional care. Protocol text is
 > illustrative and follows public lay-rescuer guidance.
 
+One of three ADK for Kotlin demos, each a standalone repo. The other two: [Cart Shop](https://github.com/ykro/cart-shop-demo) · [Recovery Pal](https://github.com/ykro/recovery-pal-demo).
+
 ## What you'll learn
 
 | ADK feature | Where |
@@ -25,53 +27,23 @@ Built with [ADK for Kotlin](https://github.com/google/adk-kotlin) 1.0.1. No Fire
 ## Architecture
 
 ```mermaid
-%%{init: {'theme':'base','themeVariables': {'lineColor':'#546E7A','textColor':'#212121','edgeLabelBackground':'#FFFFFF','fontSize':'14px'},'flowchart': {'wrappingWidth': 320}}}%%
+%%{init: {'theme':'base','themeVariables': {'lineColor':'#546E7A','textColor':'#212121','edgeLabelBackground':'#FFFFFF','fontSize':'14px'},'flowchart': {'wrappingWidth': 260, 'nodeSpacing': 28, 'rankSpacing': 48}}}%%
 flowchart LR
-  subgraph UI["Compose UI (large type)"]
-    direction TB
-    Prep["Prepare<br/>model · self-test · contact"]
-    Em["Emergency<br/>chat · status panel · TTS<br/>photo · confirmation sheet"]
-    Jr["Journal<br/>End emergency → entry · static protocols"]
-  end
-  subgraph AGENT["agent/ (all on device)"]
-    direction TB
-    RT["AgentRuntime<br/>engine holder · replay"]
-    FA["LlmAgent trail_aid<br/>streamingMode = NONE"]
-  end
-  subgraph TOOLS["Tools (string args only)"]
-    direction TB
-    SK["SkillToolset<br/>7 protocols · steps.md first"]
-    HWT["DeviceTools · TimerTools<br/>GPS · battery<br/>CPR metronome · named timers"]
-    ET["EmergencyTools ⚠︎ HITL<br/>call_emergency_contact<br/>send_location_sms"]
-  end
-  subgraph EXT["Model · storage · Android"]
-    direction TB
-    LR["Gemma 4 E2B on device<br/>LiteRtLmModel · CPU + vision"]
-    Store["RoomSessionService<br/>Room journal · DataStore"]
-    Sys["Android APIs<br/>FusedLocation · BatteryManager<br/>ToneGenerator · Call · SMS"]
-  end
-
-  Prep -- EMERGENCY --> Em --> RT --> FA
-  FA --> SK & HWT & ET
-  FA --> LR
-  RT --> Store
-  HWT --> Sys
-  ET --> Sys
+  Em["EMERGENCY<br/>chat · TTS · status panel"] --> RT["AgentRuntime<br/>engine · Room replay"]
+  RT --> AG["LlmAgent trail_aid<br/>non-streaming"]
+  AG --> SK["Skills<br/>7 protocols"]
+  AG --> HW["Device & timer tools<br/>GPS · battery · metronome"]
+  AG --> ET["call · SMS<br/>⚠︎ needs approval"]
+  AG --> L["Gemma 4 E2B<br/>LiteRT-LM on device"]
 
   classDef ui fill:#E8F5E9,stroke:#2E7D32,stroke-width:1.5px,color:#212121
   classDef agent fill:#FFFFFF,stroke:#2E7D32,stroke-width:2px,color:#212121
   classDef tool fill:#F5F5F5,stroke:#43A047,stroke-width:1.5px,color:#212121
-  classDef ext fill:#ECEFF1,stroke:#607D8B,stroke-width:1.5px,color:#212121
   classDef accent fill:#FFF3E0,stroke:#EF6C00,stroke-width:2px,color:#212121
-  class Prep,Em,Jr ui
-  class RT,FA agent
-  class SK,HWT tool
-  class Store,Sys ext
-  class ET,LR accent
-  style UI fill:#FAFAFA,stroke:#9E9E9E,color:#212121
-  style AGENT fill:#FAFAFA,stroke:#9E9E9E,color:#212121
-  style TOOLS fill:#FAFAFA,stroke:#9E9E9E,color:#212121
-  style EXT fill:#FAFAFA,stroke:#9E9E9E,color:#212121
+  class Em ui
+  class RT,AG agent
+  class SK,HW tool
+  class ET,L accent
 ```
 
 ### The spec scenario as the agent runs it
@@ -82,25 +54,21 @@ sequenceDiagram
   participant H as Hiker
   participant App as Trail Aid
   participant A as trail_aid (on device)
-  App->>A: "[app] Emergency started"
-  A-->>H: "What happened?"
+  App->>A: Emergency started
+  A-->>H: "What happened?" (spoken)
   H->>App: "My friend fell, his leg is bleeding"
-  Note over A: load_skill(bleeding)<br/>load_skill_resource(assets/steps.md)
-  A-->>H: "Apply firm direct pressure…" (spoken)
-  H->>App: "Start a pressure timer, check battery, call"
-  Note over A: start_named_timer(pressure) → status panel<br/>get_device_status → "100 %"
-  A->>App: call_emergency_contact → sheet
+  Note over A: load_skill(bleeding)<br/>load_skill_resource(steps.md)
+  A-->>H: "Apply firm direct pressure…"
+  H->>App: "Start a pressure timer and call for help"
+  Note over A: start_named_timer(pressure)<br/>get_device_status
+  A->>App: call_emergency_contact → approval sheet
   alt approve
     H->>App: Call
     App->>App: ACTION_CALL → dialer
   else cancel
     H->>App: Cancel
-    App->>A: FunctionResponse(confirmed = false)
+    App->>A: confirmed = false
   end
-  H->>App: "Send my location by SMS"
-  A->>App: send_location_sms → sheet
-  H->>App: Send SMS
-  App->>App: GPS fix + SmsManager.sendTextMessage
   H->>App: "He stopped breathing, start CPR"
   Note over A: start_cpr_metronome → 110 bpm clicks
   H->>App: End emergency → journal entry
@@ -119,8 +87,10 @@ sequenceDiagram
 Airplane mode on. Emergency → "my friend fell, his leg is bleeding and he can't stand on his foot".
 Expected chips: `load_skill(bleeding)` → `load_skill_resource(assets/steps.md)`; then
 `start_named_timer(pressure)`, `get_device_status`, `call_emergency_contact` → approval sheet → the
-dialer opens; `send_location_sms` → approval → SMS with a maps link; CPR request →
-`start_cpr_metronome` (audible clicks at 110 bpm). Close the emergency: the summary lands in the journal.
+dialer opens; `send_location_sms` → approval → SMS with a maps link; "he stopped breathing, I need
+to do CPR" → `load_skill(cpr-adult)` and the metronome starts (audible clicks at 110 bpm; the chip says
+`start_cpr_metronome · app` when the app started it, see below). Close the emergency: the summary lands
+in the journal.
 `adb shell am force-stop dev.ykro.trailaid` and reopen: the incident resumes without asking "what happened" again.
 
 Emulator notes: GPS comes from *Extended controls → Location* (or `adb emu geo fix`), the camera is
@@ -144,6 +114,14 @@ Engine load (3.6 s warm, longer on the first load), `load_skill(bleeding)` + `st
 - `RunConfig(streamingMode = NONE)`: streaming brings nothing on a 2B CPU model and the same parser
   errors surface either way; the app speaks the final answer sentence by sentence instead.
 - A small model may skip a prerequisite tool; `send_location_sms` fetches the GPS fix itself.
+- Safety-critical actions do not depend on the model's tool choice. Gemma 2B often loads the CPR
+  protocol and explains compressions without ever calling `start_cpr_metronome`, so `AgentRuntime`
+  starts the metronome itself the moment it sees `load_skill(cpr-adult)` (`autoStartMetronome`) and
+  shows a chip labelled *app* so the audience knows who acted. The instruction still asks the model to
+  call the tool; when it does, the call is idempotent.
+- The approval sheet before `call_emergency_contact` and `send_location_sms` is not the model being
+  cautious: those tools declare `requireConfirmation = true`, so ADK pauses the run until the user
+  answers. That is the human-in-the-loop feature the demo is built to show.
 - Everything the tools change is also reflected in the ADK session, so the incident summary is
   rebuilt from `replay(sessionEvents)` and survives process restarts.
 
