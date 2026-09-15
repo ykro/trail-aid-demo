@@ -25,65 +25,85 @@ Built with [ADK for Kotlin](https://github.com/google/adk-kotlin) 1.0.1. No Fire
 ## Architecture
 
 ```mermaid
-flowchart TB
-  subgraph UI["Compose UI (large type, high contrast)"]
-    Prep["Prepare\nmodel download · self-test · contact · disclaimer"]
-    Em["Emergency\nchat + chips · status panel · TTS · photo"]
-    Sheet["Confirmation sheet\nCall / Send SMS"]
-    Jr["Incident journal · static protocols (fallback)"]
+%%{init: {'theme':'base','themeVariables': {'lineColor':'#546E7A','textColor':'#212121','edgeLabelBackground':'#FFFFFF','fontSize':'14px'},'flowchart': {'wrappingWidth': 320}}}%%
+flowchart LR
+  subgraph UI["Compose UI (large type)"]
+    direction TB
+    Prep["Prepare<br/>model · self-test · contact"]
+    Em["Emergency<br/>chat · status panel · TTS<br/>photo · confirmation sheet"]
+    Jr["Journal<br/>End emergency → entry · static protocols"]
   end
-  subgraph Agent["agent/ (all on device)"]
-    RT["AgentRuntime\nengine holder · runAsync · replay\nparseMisformattedCall recovery"]
-    FA["LlmAgent trail_aid"]
-    DT["DeviceTools\nget_location · get_device_status"]
-    TT["TimerTools\nstart_cpr_metronome · stop_cpr_metronome · start_named_timer"]
-    ET["EmergencyTools (requireConfirmation)\ncall_emergency_contact · send_location_sms"]
-    SK["SkillToolset\ncpr-adult · bleeding · fracture-sprain · hypothermia\nheat-stroke · bite-sting · choking"]
-    HW["HardwareStateHolder\n→ status panel"]
-    LR["LiteRtLmModel\nGemma 4 E2B, CPU + vision backend"]
+  subgraph AGENT["agent/ (all on device)"]
+    direction TB
+    RT["AgentRuntime<br/>engine holder · replay"]
+    FA["LlmAgent trail_aid<br/>streamingMode = NONE"]
   end
-  subgraph Services
-    Room["RoomSessionService\nincident-<timestamp>"]
-    DS["DataStore: contact · active incident"]
-    DB["Room: incidents journal"]
+  subgraph TOOLS["Tools (string args only)"]
+    direction TB
+    SK["SkillToolset<br/>7 protocols · steps.md first"]
+    HWT["DeviceTools · TimerTools<br/>GPS · battery<br/>CPR metronome · named timers"]
+    ET["EmergencyTools ⚠︎ HITL<br/>call_emergency_contact<br/>send_location_sms"]
   end
-  Sys["Android: FusedLocation · BatteryManager · ToneGenerator\nACTION_CALL · SmsManager · CameraX · TextToSpeech"]
+  subgraph EXT["Model · storage · Android"]
+    direction TB
+    LR["Gemma 4 E2B on device<br/>LiteRtLmModel · CPU + vision"]
+    Store["RoomSessionService<br/>Room journal · DataStore"]
+    Sys["Android APIs<br/>FusedLocation · BatteryManager<br/>ToneGenerator · Call · SMS"]
+  end
 
-  Prep --> DS
-  Prep -- EMERGENCY --> Em --> RT --> FA --> DT & TT & ET & SK
+  Prep -- EMERGENCY --> Em --> RT --> FA
+  FA --> SK & HWT & ET
   FA --> LR
-  RT --> Room
-  DT & TT & ET --> HW --> Em
-  DT & TT & ET --> Sys
-  ET -. adk_request_confirmation .-> Sheet --> RT
-  Em -- End emergency --> DB --> Jr
+  RT --> Store
+  HWT --> Sys
+  ET --> Sys
+
+  classDef ui fill:#E8F5E9,stroke:#2E7D32,stroke-width:1.5px,color:#212121
+  classDef agent fill:#FFFFFF,stroke:#2E7D32,stroke-width:2px,color:#212121
+  classDef tool fill:#F5F5F5,stroke:#43A047,stroke-width:1.5px,color:#212121
+  classDef ext fill:#ECEFF1,stroke:#607D8B,stroke-width:1.5px,color:#212121
+  classDef accent fill:#FFF3E0,stroke:#EF6C00,stroke-width:2px,color:#212121
+  class Prep,Em,Jr ui
+  class RT,FA agent
+  class SK,HWT tool
+  class Store,Sys ext
+  class ET,LR accent
+  style UI fill:#FAFAFA,stroke:#9E9E9E,color:#212121
+  style AGENT fill:#FAFAFA,stroke:#9E9E9E,color:#212121
+  style TOOLS fill:#FAFAFA,stroke:#9E9E9E,color:#212121
+  style EXT fill:#FAFAFA,stroke:#9E9E9E,color:#212121
 ```
 
 ### The spec scenario as the agent runs it
 
 ```mermaid
 sequenceDiagram
+  autonumber
   participant H as Hiker
   participant App as Trail Aid
   participant A as trail_aid (on device)
   App->>A: "[app] Emergency started"
   A-->>H: "What happened?"
-  H->>App: "My friend fell, his leg is bleeding, he can't stand"
-  A->>A: load_skill(bleeding) · load_skill_resource(assets/steps.md)
+  H->>App: "My friend fell, his leg is bleeding"
+  Note over A: load_skill(bleeding)<br/>load_skill_resource(assets/steps.md)
   A-->>H: "Apply firm direct pressure…" (spoken)
-  H->>App: "Start the pressure timer, check the battery, call my contact"
-  A->>A: start_named_timer(pressure) → status panel "pressure @ 11:05"
-  A->>A: get_device_status → "100 %"
-  A->>App: call_emergency_contact → confirmation sheet
-  H->>App: Call
-  App->>App: ACTION_CALL → dialer
+  H->>App: "Start a pressure timer, check battery, call"
+  Note over A: start_named_timer(pressure) → status panel<br/>get_device_status → "100 %"
+  A->>App: call_emergency_contact → sheet
+  alt approve
+    H->>App: Call
+    App->>App: ACTION_CALL → dialer
+  else cancel
+    H->>App: Cancel
+    App->>A: FunctionResponse(confirmed = false)
+  end
   H->>App: "Send my location by SMS"
-  A->>App: send_location_sms → confirmation sheet
+  A->>App: send_location_sms → sheet
   H->>App: Send SMS
-  App->>App: get GPS fix + SmsManager.sendTextMessage
+  App->>App: GPS fix + SmsManager.sendTextMessage
   H->>App: "He stopped breathing, start CPR"
-  A->>A: start_cpr_metronome → 110 bpm clicks
-  H->>App: End emergency → journal entry from session events
+  Note over A: start_cpr_metronome → 110 bpm clicks
+  H->>App: End emergency → journal entry
 ```
 
 ## Setup
