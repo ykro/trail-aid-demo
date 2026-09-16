@@ -161,3 +161,7 @@ app/src/main/kotlin/dev/ykro/trailaid/
 app/src/main/assets/skills/<protocol>/SKILL.md + assets/steps.md (+ conditional assets)
 app/src/test/   hardware state summary, misformatted tool-call recovery
 ```
+
+## License
+
+Apache License 2.0. Copyright 2026 Adrián Catalán. See [LICENSE](LICENSE).
