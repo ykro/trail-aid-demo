@@ -1,6 +1,6 @@
 # Trail Aid — ADK for Kotlin demo
 
-An offline first-aid guide for hikers. The **only** model is Gemma 4 E2B running on the phone
+An offline first-aid guide for hikers. The **only** model is [Gemma 4 E2B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm) running on the phone
 through LiteRT-LM, so the agent works with no signal at all. It follows seven protocol **skills**,
 acts on the phone's hardware through tools (GPS, battery, CPR metronome, named timers) and, only
 after the hiker approves, calls or texts the emergency contact with the coordinates.
@@ -118,9 +118,10 @@ times faster). Keep the emulator otherwise idle.
 
 ## Verified on the emulator (Pixel_9_API_36)
 
-Engine load (3.6 s warm, longer on the first load), `load_skill(bleeding)` + `steps.md`,
-`start_named_timer`, `get_device_status`, `call_emergency_contact` → in-call screen, `send_location_sms`
-→ SMS sent, `start_cpr_metronome` → 110 bpm, resume after reinstall, journal entry.
+Engine load (0.4 s warm, 4–5 s cold, over a minute when the host is busy), `load_skill(bleeding)` +
+`steps.md`, `start_named_timer`, `get_device_status`, `call_emergency_contact` → dialer,
+`send_location_sms` → SMS with coordinates, `load_skill(cpr-adult)` → metronome at 110 bpm started
+by the app, resume after reinstall and after a process kill, journal entries, static protocols.
 
 ## Things the emulator taught us about on-device tool calling (LiteRT-LM 0.13.1 + ADK 1.0.1)
 
