@@ -111,7 +111,12 @@ in the journal.
 `adb shell am force-stop dev.ykro.trailaid` and reopen: the incident resumes without asking "what happened" again.
 
 Emulator notes: with airplane mode on, the dialer opens but shows "Turn off airplane mode to make a
-call"; switch it off for the call step (the agent itself never needs the network). GPS comes from
+call"; switch it off for the call step (the agent itself never needs the network). Engine load times
+measured on `Pixel_9_API_36` (arm64, 12 GB, Apple M1 Max host): 0.4 s when the process is still alive
+and the weights are cached, 4–5 s on a cold start with an idle host, and 90–95 s when the host is busy
+(a Gradle build, Spotlight indexing or a macOS update running at the same time); under that load the
+system may also kill the app for a startup ANR, so start Trail Aid before the talk and keep the host
+idle. Model turns take 10 s to 5 min depending on the same load. GPS comes from
 *Extended controls → Location* (or `adb emu geo fix`), the camera is
 the emulated scene, and each model turn takes 1–5 minutes on the arm64 emulator (a Pixel is several
 times faster). Keep the emulator otherwise idle.
