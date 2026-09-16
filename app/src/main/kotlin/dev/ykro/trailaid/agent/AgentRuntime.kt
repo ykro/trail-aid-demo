@@ -165,6 +165,7 @@ class AgentRuntime(private val context: Context, private val store: TrailStore, 
         emit(AgentUiEvent.Error(e.message?.lineSequence()?.firstOrNull() ?: e::class.simpleName.orEmpty()))
       }
     }
+    Timber.i("Turn finished")
     emit(AgentUiEvent.Done)
   }
 

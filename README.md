@@ -74,6 +74,23 @@ sequenceDiagram
   H->>App: End emergency → journal entry
 ```
 
+## Screens
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/01-prepare.png" width="230" alt="Prepare screen with the model ready and the emergency contact"><br><sub>Prepare: model, contact, protocols</sub></td>
+    <td align="center"><img src="docs/screenshots/02-emergency-chips.png" width="230" alt="Emergency chat with load_skill and start_named_timer chips and the status panel"><br><sub>Emergency: skill + timer, status panel</sub></td>
+    <td align="center"><img src="docs/screenshots/03-call-approval.png" width="230" alt="Approval sheet before calling the emergency contact"><br><sub>Call: ADK pauses for approval</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/06-sms-approval.png" width="230" alt="Approval sheet showing the SMS text with coordinates and a maps link"><br><sub>SMS with the exact text and coordinates</sub></td>
+    <td align="center"><img src="docs/screenshots/04-metronome.png" width="230" alt="CPR protocol loaded and the metronome running at 110 bpm in the status panel"><br><sub>CPR: metronome started by the app</sub></td>
+    <td align="center"><img src="docs/screenshots/05-journal.png" width="230" alt="Incident journal with protocols, timers, location and calls"><br><sub>Incident journal</sub></td>
+  </tr>
+</table>
+
+More: [protocols on board](docs/screenshots/08-prepare-protocols.png) · [static protocols fallback](docs/screenshots/07-protocols.png). All captured on the `Pixel_9_API_36` emulator; the header shows the engine load time of that launch.
+
 ## Setup
 
 1. `./gradlew :app:installDebug` (JDK 17+; Gradle 9.7.1 / AGP 9.4.0 pinned by the wrapper).
@@ -93,7 +110,9 @@ to do CPR" → `load_skill(cpr-adult)` and the metronome starts (audible clicks 
 in the journal.
 `adb shell am force-stop dev.ykro.trailaid` and reopen: the incident resumes without asking "what happened" again.
 
-Emulator notes: GPS comes from *Extended controls → Location* (or `adb emu geo fix`), the camera is
+Emulator notes: with airplane mode on, the dialer opens but shows "Turn off airplane mode to make a
+call"; switch it off for the call step (the agent itself never needs the network). GPS comes from
+*Extended controls → Location* (or `adb emu geo fix`), the camera is
 the emulated scene, and each model turn takes 1–5 minutes on the arm64 emulator (a Pixel is several
 times faster). Keep the emulator otherwise idle.
 
